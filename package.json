@@ -3,12 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Phase 0: closed x402 → USDC loop (Express server + dummy agent) on Base Sepolia.",
+  "workspaces": ["packages/*"],
+  "description": "Agent payments governance layer — OSS core + x402 integration.",
   "scripts": {
     "server": "tsx src/server.ts",
     "agent": "tsx src/agent.ts",
     "gen-wallet": "tsx src/scripts/new-wallet.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && npm -w packages/core run typecheck"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

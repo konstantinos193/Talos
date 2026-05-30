@@ -8,16 +8,10 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true,
     "isolatedModules": true,
-    "allowImportingTsExtensions": false,
-    "verbatimModuleSyntax": false,
-    "baseUrl": ".",
     "paths": {
-      "@mvp1/core": ["packages/core/src/index.ts"],
-      "@mvp1/x402-express": ["packages/x402-express/src/index.ts"]
+      "@mvp1/core": ["../core/src/index.ts"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"]
 }
