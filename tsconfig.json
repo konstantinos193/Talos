@@ -12,6 +12,7 @@
     "isolatedModules": true,
     "allowImportingTsExtensions": false,
     "verbatimModuleSyntax": false,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@talos/core": ["packages/core/src/index.ts"],

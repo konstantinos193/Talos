@@ -16,7 +16,7 @@ import {
 } from 'x402/types';
 import { useFacilitator } from 'x402/verify';
 import type { RoutesConfig, FacilitatorConfig } from 'x402/types';
-import type { PolicyEngine, PaymentContext } from '@mvp1/core';
+import type { PolicyEngine, PaymentContext } from '@talos/core';
 
 export function governedPaymentMiddleware(
   payTo: `0x${string}`,
