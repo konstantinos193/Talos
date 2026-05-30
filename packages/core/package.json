@@ -1,5 +1,5 @@
 {
-  "name": "@mvp1/core",
+  "name": "@talos/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",

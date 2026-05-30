@@ -14,7 +14,7 @@
     "verbatimModuleSyntax": false,
     "baseUrl": ".",
     "paths": {
-      "@mvp1/core": ["packages/core/src/index.ts"],
+      "@talos/core": ["packages/core/src/index.ts"],
       "@mvp1/x402-express": ["packages/x402-express/src/index.ts"]
     }
   },

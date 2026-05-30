@@ -1,6 +1,6 @@
 import express from "express";
-import { governedPaymentMiddleware, type Network } from "@mvp1/x402-express";
-import { PolicyEngine, MemoryBudgetStore, MemoryAllowlist, MemoryAuditLog } from "@mvp1/core";
+import { governedPaymentMiddleware, type Network } from "@talos/x402-express";
+import { PolicyEngine, MemoryBudgetStore, MemoryAllowlist, MemoryAuditLog } from "@talos/core";
 import { loadServerEnv } from "./config/env";
 
 const env = loadServerEnv();
