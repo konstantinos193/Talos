@@ -64,12 +64,17 @@ And `/audit/budget?agent=0xAFc6...`:
 
 `requested → approved → settled`. Every decision, logged. Every cent, accounted for.
 
+The `requested` and `approved` timestamps match — the policy check (budget + allowlist) is synchronous in-memory, sub-millisecond. The gap is between approval and on-chain settlement (~1.4s above).
+
 ---
 
 ## Install
 
+> **Not on npm yet** — clone and build locally. npm publish coming once the API stabilises.
+
 ```bash
-npm install @talos/core @talos/x402-express
+git clone https://github.com/konstantinos193/Talos.git
+cd Talos && npm install
 ```
 
 **Before** (stock x402-express):
