@@ -2,7 +2,7 @@
 
 > Congrats, your agent just paid $40 in API fees while you slept. Built this so mine wouldn't.
 
-**Talos** is a server-side governance layer for AI agent payments. Drop it in front of [x402-express](https://github.com/coinbase/x402), set a budget cap, and sleep normally.
+**Talos** is the opinionated audit + budget layer for [x402](https://github.com/coinbase/x402) agent payments. x402 v2 gives you the enforcement hook (`onBeforeVerify`). Talos is the policy engine that drops into it — per-agent budget caps, allowlists, and a full audit trail — so every team isn't hand-rolling the same spend tracking differently.
 
 ![Talos demo — over-budget agent blocked, funded agent settles on-chain](demo.gif)
 
@@ -22,7 +22,18 @@ Talos is the part where it stops.
 
 ## Proof it works
 
-Here's what `/audit` returns after a real on-chain payment on Base Sepolia:
+**The block** — over-budget agent, `GET /paid`, $0.00 limit:
+
+```json
+[
+  { "type": "payment:requested", "agentAddress": "0x742d35...", "amountAtomicUsdc": "1000" },
+  { "type": "payment:rejected",  "agentAddress": "0x742d35...", "amountAtomicUsdc": "1000", "reason": "budget_exceeded" }
+]
+```
+
+HTTP 402 returned. Resource never served. No payment initiated. The block fires at `onBeforeVerify` — before x402 touches the facilitator.
+
+**The allow** — funded agent, same endpoint, $10 USDC/hr limit:
 
 ```json
 [
@@ -75,6 +86,7 @@ The `requested` and `approved` timestamps match — the policy check (budget + a
 ## Install
 
 > **Not on npm yet** — clone and build locally. npm publish coming once the API stabilises.
+> **API in flux** — migrating to x402 v2 lifecycle hooks. Code samples below reflect v1; updated examples in [`src/server.ts`](src/server.ts).
 
 ```bash
 git clone https://github.com/konstantinos193/Talos.git
