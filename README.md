@@ -4,6 +4,10 @@
 
 **Talos** is a server-side governance layer for AI agent payments. Drop it in front of [x402-express](https://github.com/coinbase/x402), set a budget cap, and sleep normally.
 
+![Talos demo — over-budget agent blocked, funded agent settles on-chain](demo.gif)
+
+*Scene 1: over-budget agent → `onBeforeVerify` → HTTP 402, resource never served, no payment initiated. Scene 2: funded agent → status 200 → on-chain settlement with tx hash → full audit trail.*
+
 ---
 
 ## The problem

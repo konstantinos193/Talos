@@ -11,6 +11,8 @@
     "server": "tsx src/server.ts",
     "agent": "tsx src/agent.ts",
     "gen-wallet": "tsx src/scripts/new-wallet.ts",
+    "test": "node --import tsx/esm --test test/governance.test.ts",
+    "demo": "node --import tsx/esm src/demo.ts",
     "typecheck": "tsc --noEmit && npm -w packages/core run typecheck && npm -w packages/x402-express run typecheck"
   },
   "dependencies": {
