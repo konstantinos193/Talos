@@ -1,4 +1,4 @@
-export type { Hex, PaymentEventType, PaymentContext, PolicyDecision, PaymentEvent } from './types.js';
+export type { Hex, PaymentEventType, PaymentEvent } from './types.js';
 export type { BudgetConfig, BudgetStore } from './budget.js';
 export { MemoryBudgetStore } from './budget.js';
 export type { AllowlistMode, Allowlist, AllowlistInit } from './allowlist.js';

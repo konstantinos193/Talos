@@ -1,31 +1,31 @@
 import { randomUUID } from 'crypto';
-import type { x402ResourceServer, SettleContext, SettleResultContext, SettleFailureContext } from '@x402/core/server';
-import type { PolicyEngine } from '@talos/core';
-import type { Hex } from '@talos/core';
+import type { x402ResourceServer, VerifyFailureContext, SettleResultContext, SettleFailureContext } from '@x402/core/server';
+import type { PolicyEngine, Hex } from '@talos/core';
 
-function extractPayer(ctx: SettleContext): Hex {
+// Minimal structural type — works for VerifyContext, SettleContext, and their sub-types.
+type WithPayload = { paymentPayload: { payload: unknown }; requirements: { payTo: string; amount: string; asset: string; network: string } };
+
+function extractPayer(ctx: WithPayload): Hex {
   const payload = ctx.paymentPayload.payload as Record<string, unknown>;
   const eip3009 = payload.authorization as { from?: string } | undefined;
   if (eip3009?.from) return eip3009.from as Hex;
-  const permit2 = payload.permit2Authorization as { from?: string } | undefined;
-  if (permit2?.from) return permit2.from as Hex;
+  const p2 = payload.permit2Authorization as { from?: string } | undefined;
+  if (p2?.from) return p2.from as Hex;
   return '0x0000000000000000000000000000000000000000';
-}
-
-function extractAmount(ctx: SettleContext | SettleResultContext): bigint {
-  const override = (ctx as SettleResultContext).result?.amount;
-  return BigInt(override ?? ctx.requirements.amount);
 }
 
 export function attachGovernance(server: x402ResourceServer, engine: PolicyEngine): x402ResourceServer {
   return server
-    .onBeforeSettle(async (ctx) => {
+    // Gate fires BEFORE verify — content is never served on reject.
+    // Tradeoff: 'from' is claimed-but-unverified here. A forged 'from' is
+    // blocked by the facilitator verify that follows, and the reservation is
+    // released by onVerifyFailure. Acceptable grief risk for testnet.
+    .onBeforeVerify(async (ctx) => {
       const agent = extractPayer(ctx);
-      const amount = extractAmount(ctx);
-      const merchantAddress = ctx.requirements.payTo as Hex;
+      const amount = BigInt(ctx.requirements.amount);
       const base = {
         agentAddress: agent,
-        merchantAddress,
+        merchantAddress: ctx.requirements.payTo as Hex,
         amountAtomicUsdc: amount,
         asset: ctx.requirements.asset,
         network: ctx.requirements.network,
@@ -44,25 +44,11 @@ export function attachGovernance(server: x402ResourceServer, engine: PolicyEngin
       }
 
       await engine.auditLog.record({ id: randomUUID(), type: 'payment:approved', ...base });
+      // reservation is held; released by onVerifyFailure or onSettleFailure
     })
-    .onAfterSettle(async (ctx) => {
-      const agent = (ctx.result.payer ?? extractPayer(ctx)) as Hex;
-      const amount = extractAmount(ctx);
-      const txHash = ctx.result.transaction;
-      await engine.budget.commit(agent, amount);
-      await engine.auditLog.record({
-        id: randomUUID(),
-        type: 'payment:settled',
-        agentAddress: agent,
-        merchantAddress: ctx.requirements.payTo as Hex,
-        amountAtomicUsdc: amount,
-        asset: ctx.requirements.asset,
-        network: ctx.requirements.network,
-        txHash,
-        timestampMs: Date.now(),
-      });
-    })
-    .onSettleFailure(async (ctx) => {
+    // Facilitator rejected the payment after we had already reserved.
+    // Release the hold so budget is not permanently consumed by a bad payload.
+    .onVerifyFailure(async (ctx: VerifyFailureContext) => {
       const agent = extractPayer(ctx);
       const amount = BigInt(ctx.requirements.amount);
       await engine.budget.release(agent, amount);
@@ -74,7 +60,39 @@ export function attachGovernance(server: x402ResourceServer, engine: PolicyEngin
         amountAtomicUsdc: amount,
         asset: ctx.requirements.asset,
         network: ctx.requirements.network,
-        reason: (ctx as SettleFailureContext).error?.message,
+        reason: ctx.error.message,
+        timestampMs: Date.now(),
+      });
+    })
+    .onAfterSettle(async (ctx: SettleResultContext) => {
+      const agent = (ctx.result.payer as Hex | undefined) ?? extractPayer(ctx);
+      const amount = BigInt(ctx.result.amount ?? ctx.requirements.amount);
+      await engine.budget.commit(agent, amount);
+      await engine.auditLog.record({
+        id: randomUUID(),
+        type: 'payment:settled',
+        agentAddress: agent,
+        merchantAddress: ctx.requirements.payTo as Hex,
+        amountAtomicUsdc: amount,
+        asset: ctx.requirements.asset,
+        network: ctx.requirements.network,
+        txHash: ctx.result.transaction,
+        timestampMs: Date.now(),
+      });
+    })
+    .onSettleFailure(async (ctx: SettleFailureContext) => {
+      const agent = extractPayer(ctx);
+      const amount = BigInt(ctx.requirements.amount);
+      await engine.budget.release(agent, amount);
+      await engine.auditLog.record({
+        id: randomUUID(),
+        type: 'payment:failed',
+        agentAddress: agent,
+        merchantAddress: ctx.requirements.payTo as Hex,
+        amountAtomicUsdc: amount,
+        asset: ctx.requirements.asset,
+        network: ctx.requirements.network,
+        reason: ctx.error.message,
         timestampMs: Date.now(),
       });
       // do NOT return { recovered: true } — let the failure propagate

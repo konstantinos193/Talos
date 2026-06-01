@@ -70,6 +70,11 @@ export class MemoryBudgetStore implements BudgetStore {
 
   async release(agentAddress: string, amount: bigint): Promise<void> {
     const b = this.bucket(agentAddress);
+    if (b.spent < amount) {
+      // This is a logic bug if the window hasn't rolled over; if it has, it's
+      // expected (reservation was in previous window — benign, just clamp).
+      console.warn(`budget.release: releasing ${amount} but bucket.spent=${b.spent} for ${agentAddress} — possible logic bug or window rollover`);
+    }
     b.spent = b.spent > amount ? b.spent - amount : 0n;
   }
 }

@@ -7,21 +7,6 @@ export type PaymentEventType =
   | 'payment:settled'
   | 'payment:failed';
 
-export interface PaymentContext {
-  agentAddress: Hex;
-  merchantAddress: Hex;
-  amountAtomicUsdc: bigint;
-  asset: string;
-  network: string;
-  route?: string;
-  correlationId?: string;
-}
-
-export interface PolicyDecision {
-  allow: boolean;
-  reason?: string;
-}
-
 export interface PaymentEvent {
   id: string;
   type: PaymentEventType;
