@@ -1,15 +1,13 @@
 import { privateKeyToAccount } from "viem/accounts";
-import { wrapFetchWithPayment, decodeXPaymentResponse } from "x402-fetch";
-import { loadAgentEnv } from "./config/env";
+import { wrapFetchWithPayment, decodePaymentResponseHeader, x402Client } from "@x402/fetch";
+import { ExactEvmScheme } from "@x402/evm/exact/client";
+import { loadAgentEnv } from "./config/env.js";
 
 const env = loadAgentEnv();
 const account = privateKeyToAccount(env.privateKey);
 
-// The wrapper accepts a viem LocalAccount directly. The chainId for the EIP-712
-// domain is taken from the server's 402 payment requirements, not from the signer,
-// so we don't need a chain-bound wallet client here.
-// Default cap is 0.1 USDC; bump to 1 USDC per request for Phase 0 headroom.
-const fetchWithPay = wrapFetchWithPayment(fetch, account, BigInt(1_000_000));
+const client = new x402Client().register("eip155:*", new ExactEvmScheme(account));
+const fetchWithPay = wrapFetchWithPayment(fetch, client);
 
 async function main() {
   console.log(`agent address: ${account.address}`);
@@ -21,13 +19,13 @@ async function main() {
   const body = await res.json();
   console.log("body:", body);
 
-  const settle = res.headers.get("x-payment-response");
+  const settle = res.headers.get("payment-response");
   if (!settle) {
-    console.warn("\nno x-payment-response header — server may not have settled");
+    console.warn("\nno payment-response header — server may not have settled");
     return;
   }
 
-  const decoded = decodeXPaymentResponse(settle);
+  const decoded = decodePaymentResponseHeader(settle);
   console.log("\nsettlement:");
   console.log(`  tx:       ${decoded.transaction}`);
   console.log(`  network:  ${decoded.network}`);

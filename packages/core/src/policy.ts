@@ -6,9 +6,9 @@ import type { AuditLog } from './audit.js';
 
 export class PolicyEngine {
   constructor(
-    private readonly budget: BudgetStore,
-    private readonly allowlist: Allowlist,
-    private readonly auditLog: AuditLog,
+    readonly budget: BudgetStore,
+    readonly allowlist: Allowlist,
+    readonly auditLog: AuditLog,
   ) {}
 
   async evaluate(ctx: PaymentContext): Promise<PolicyDecision> {

@@ -18,7 +18,6 @@ export function loadServerEnv() {
     payTo: required("PAY_TO_ADDRESS") as `0x${string}`,
     port: Number(optional("PORT", "4021")),
     facilitatorUrl: optional("X402_FACILITATOR_URL", "https://x402.org/facilitator"),
-    network: optional("X402_NETWORK", "base-sepolia"),
   } as const;
 }
 

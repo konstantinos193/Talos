@@ -1,39 +1,41 @@
 import express from "express";
-import { governedPaymentMiddleware, type Network } from "@talos/x402-express";
+import { paymentMiddleware } from "@x402/express";
+import { x402ResourceServer, HTTPFacilitatorClient } from "@x402/core/server";
+import { registerExactEvmScheme } from "@x402/evm/exact/server";
+import { attachGovernance } from "@talos/x402";
 import { PolicyEngine, MemoryBudgetStore, MemoryAllowlist, MemoryAuditLog } from "@talos/core";
-import { loadServerEnv } from "./config/env";
+import { loadServerEnv } from "./config/env.js";
 
 const env = loadServerEnv();
 const app = express();
 app.use(express.json());
 
-// 10 USDC per hour per agent, open merchant allowlist
+// 10 USDC per hour per agent, open allowlist
 const engine = new PolicyEngine(
   new MemoryBudgetStore({ limitAtomicUsdc: 10_000_000n, windowMs: 60 * 60 * 1000 }),
   new MemoryAllowlist({ mode: "open" }),
   new MemoryAuditLog(),
 );
 
+const facilitator = new HTTPFacilitatorClient({ url: env.facilitatorUrl });
+const resourceServer = new x402ResourceServer(facilitator);
+registerExactEvmScheme(resourceServer); // registers eip155:* wildcard
+attachGovernance(resourceServer, engine);
+
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, payTo: env.payTo, network: env.network });
+  res.json({ ok: true, payTo: env.payTo });
 });
 
 app.use(
-  governedPaymentMiddleware(
-    env.payTo,
+  paymentMiddleware(
     {
       "GET /paid": {
-        price: "$0.001",
-        network: env.network as Network,
-        config: {
-          description: "Phase 0 paid resource — proves the x402 loop works",
-          mimeType: "application/json",
-          maxTimeoutSeconds: 60,
-        },
+        accepts: [{ scheme: "exact", price: "$0.001", network: "eip155:84532", payTo: env.payTo }],
+        description: "Phase 0 paid resource — proves the x402 loop works",
+        mimeType: "application/json",
       },
     },
-    engine,
-    { url: env.facilitatorUrl as `${string}://${string}` },
+    resourceServer,
   ),
 );
 
@@ -71,6 +73,6 @@ app.get("/audit/budget", async (req, res) => {
 app.listen(env.port, () => {
   console.log(`x402 server listening on http://localhost:${env.port}`);
   console.log(`  payTo:       ${env.payTo}`);
-  console.log(`  network:     ${env.network}`);
+  console.log(`  network:     eip155:84532`);
   console.log(`  facilitator: ${env.facilitatorUrl}`);
 });

@@ -3,20 +3,24 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "description": "Agent payments governance layer — OSS core + x402 integration.",
   "scripts": {
     "server": "tsx src/server.ts",
     "agent": "tsx src/agent.ts",
     "gen-wallet": "tsx src/scripts/new-wallet.ts",
-    "typecheck": "tsc --noEmit && npm -w packages/core run typecheck"
+    "typecheck": "tsc --noEmit && npm -w packages/core run typecheck && npm -w packages/x402-express run typecheck"
   },
   "dependencies": {
+    "@x402/core": "^2.14.0",
+    "@x402/evm": "^2.14.0",
+    "@x402/express": "^2.14.0",
+    "@x402/fetch": "^2.14.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "viem": "^2.51.3",
-    "x402-express": "^1.2.0",
-    "x402-fetch": "^1.2.0"
+    "viem": "^2.51.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

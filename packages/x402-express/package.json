@@ -1,5 +1,5 @@
 {
-  "name": "@talos/x402-express",
+  "name": "@talos/x402",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,10 +11,9 @@
   },
   "dependencies": {
     "@talos/core": "*",
-    "express": "^5.2.1",
-    "viem": "^2.51.3",
-    "x402": "^1.2.0",
-    "x402-express": "^1.2.0"
+    "@x402/core": "*",
+    "@x402/evm": "*",
+    "@x402/express": "*"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

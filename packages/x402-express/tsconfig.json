@@ -9,9 +9,10 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "types": ["node"],
     "paths": {
-      "@mvp1/core": ["../core/src/index.ts"]
+      "@talos/core": ["../core/src/index.ts"]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "../core/src/**/*"]
 }
