@@ -3,6 +3,11 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# internal strategy docs — never publish
+docs/competition.md
+docs/gap-audit.md
+docs/outreach-targets.md
+
 # recording artifacts
 demo-raw.mkv
 demo-raw.mp4
