@@ -39,6 +39,16 @@ app.use(
         description: "Phase 0 paid resource — proves the x402 loop works",
         mimeType: "application/json",
       },
+      "GET /scrape": {
+        accepts: [{ scheme: "exact", price: "$0.001", network: "eip155:84532", payTo: env.payTo }],
+        description: "Scrape endpoint — per-route budget: $0.01/hr",
+        mimeType: "application/json",
+      },
+      "GET /extract": {
+        accepts: [{ scheme: "exact", price: "$0.001", network: "eip155:84532", payTo: env.payTo }],
+        description: "Extract endpoint — per-route budget: $0.05/hr",
+        mimeType: "application/json",
+      },
     },
     resourceServer,
   ),
@@ -50,6 +60,14 @@ app.get("/paid", (_req, res) => {
     message: "machine paid machine — governance layer active",
     timestamp: new Date().toISOString(),
   });
+});
+
+app.get("/scrape", (_req, res) => {
+  res.json({ ok: true, route: "scrape", timestamp: new Date().toISOString() });
+});
+
+app.get("/extract", (_req, res) => {
+  res.json({ ok: true, route: "extract", timestamp: new Date().toISOString() });
 });
 
 // Audit log — GET /audit?agent=0x...&since=<ms>&limit=N

@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@talos/core": "*",
+    "@talos/core": "workspace:*",
     "@x402/core": "*",
     "@x402/evm": "*",
     "@x402/express": "*"
