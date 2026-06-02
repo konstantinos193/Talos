@@ -88,6 +88,8 @@ The `requested` and `approved` timestamps match — the policy check (budget + a
 > **Not on npm yet** — clone and build locally. npm publish coming once the API stabilises.
 > **API in flux** — migrating to x402 v2 lifecycle hooks. Code samples below reflect v1; updated examples in [`src/server.ts`](src/server.ts).
 
+Adding Talos to an existing x402 v2 service? See **[INTEGRATION.md](INTEGRATION.md)** — step-by-step guide with before/after diffs, per-route budget config, and production caveats.
+
 ```bash
 git clone https://github.com/konstantinos193/Talos.git
 cd Talos && npm install
