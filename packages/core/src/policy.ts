@@ -14,7 +14,7 @@ export class PolicyEngine {
     return this.auditLog.query(filter);
   }
 
-  async getSpent(agentAddress: string): Promise<bigint> {
+  async getSpent(agentAddress: string): Promise<Record<string, bigint>> {
     return this.budget.getSpent(agentAddress);
   }
 }

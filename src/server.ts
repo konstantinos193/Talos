@@ -10,9 +10,14 @@ const env = loadServerEnv();
 const app = express();
 app.use(express.json());
 
-// 10 USDC per hour per agent, open allowlist
 const engine = new PolicyEngine(
-  new MemoryBudgetStore({ limitAtomicUsdc: 10_000_000n, windowMs: 60 * 60 * 1000 }),
+  new MemoryBudgetStore({
+    default:  { limitAtomicUsdc: 10_000_000n, windowMs: 3_600_000 },  // $10/hr fallback
+    perRoute: {
+      "GET /scrape":  { limitAtomicUsdc:  10_000n, windowMs: 3_600_000 },  // $0.01/hr
+      "GET /extract": { limitAtomicUsdc:  50_000n, windowMs: 3_600_000 },  // $0.05/hr
+    },
+  }),
   new MemoryAllowlist({ mode: "open" }),
   new MemoryAuditLog(),
 );
@@ -66,8 +71,13 @@ app.get("/audit/budget", async (req, res) => {
     res.status(400).json({ error: "agent query param required" });
     return;
   }
-  const spent = await engine.getSpent(agent);
-  res.json({ agent, spentAtomicUsdc: spent.toString(), spentUsdc: (Number(spent) / 1_000_000).toFixed(6) });
+  const breakdown = await engine.getSpent(agent);
+  res.json({
+    agent,
+    perRoute: Object.fromEntries(
+      Object.entries(breakdown).map(([k, v]) => [k, v.toString()]),
+    ),
+  });
 });
 
 app.listen(env.port, () => {

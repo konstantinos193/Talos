@@ -3,7 +3,10 @@ import type { x402ResourceServer, VerifyFailureContext, SettleResultContext, Set
 import type { PolicyEngine, Hex } from '@talos/core';
 
 // Minimal structural type — works for VerifyContext, SettleContext, and their sub-types.
-type WithPayload = { paymentPayload: { payload: unknown }; requirements: { payTo: string; amount: string; asset: string; network: string } };
+type WithPayload = {
+  paymentPayload: { payload: unknown };
+  requirements: { payTo: string; amount: string; asset: string; network: string };
+};
 
 function extractPayer(ctx: WithPayload): Hex {
   const payload = ctx.paymentPayload.payload as Record<string, unknown>;
@@ -14,6 +17,17 @@ function extractPayer(ctx: WithPayload): Hex {
   return '0x0000000000000000000000000000000000000000';
 }
 
+// transportContext is typed as unknown in the hook ctx but is populated by x402-express
+// with { request: { method, path, routePattern? } } from the real Express req.
+function extractRoute(ctx: WithPayload): string {
+  const tc = (ctx as any).transportContext as
+    { request: { method: string; path: string; routePattern?: string } } | undefined;
+  const method = tc?.request?.method ?? 'GET';
+  const raw = tc?.request?.routePattern ?? tc?.request?.path ?? '/';
+  const path = raw.replace(/\/+$/, '') || '/';
+  return `${method} ${path}`;
+}
+
 export function attachGovernance(server: x402ResourceServer, engine: PolicyEngine): x402ResourceServer {
   return server
     // Gate fires BEFORE verify — content is never served on reject.
@@ -21,7 +35,8 @@ export function attachGovernance(server: x402ResourceServer, engine: PolicyEngin
     // blocked by the facilitator verify that follows, and the reservation is
     // released by onVerifyFailure. Acceptable grief risk for testnet.
     .onBeforeVerify(async (ctx) => {
-      const agent = extractPayer(ctx);
+      const agent  = extractPayer(ctx);
+      const route  = extractRoute(ctx);
       const amount = BigInt(ctx.requirements.amount);
       const base = {
         agentAddress: agent,
@@ -29,6 +44,7 @@ export function attachGovernance(server: x402ResourceServer, engine: PolicyEngin
         amountAtomicUsdc: amount,
         asset: ctx.requirements.asset,
         network: ctx.requirements.network,
+        route,
         timestampMs: Date.now(),
       };
 
@@ -38,7 +54,7 @@ export function attachGovernance(server: x402ResourceServer, engine: PolicyEngin
         await engine.auditLog.record({ id: randomUUID(), type: 'payment:rejected', reason: 'not_allowlisted', ...base });
         return { abort: true as const, reason: 'not_allowlisted' };
       }
-      if (!await engine.budget.tryReserve(agent, amount)) {
+      if (!await engine.budget.tryReserve(agent, route, amount)) {
         await engine.auditLog.record({ id: randomUUID(), type: 'payment:rejected', reason: 'budget_exceeded', ...base });
         return { abort: true as const, reason: 'budget_exceeded' };
       }
@@ -49,9 +65,10 @@ export function attachGovernance(server: x402ResourceServer, engine: PolicyEngin
     // Facilitator rejected the payment after we had already reserved.
     // Release the hold so budget is not permanently consumed by a bad payload.
     .onVerifyFailure(async (ctx: VerifyFailureContext) => {
-      const agent = extractPayer(ctx);
+      const agent  = extractPayer(ctx);
+      const route  = extractRoute(ctx);
       const amount = BigInt(ctx.requirements.amount);
-      await engine.budget.release(agent, amount);
+      await engine.budget.release(agent, route, amount);
       await engine.auditLog.record({
         id: randomUUID(),
         type: 'payment:failed',
@@ -60,14 +77,16 @@ export function attachGovernance(server: x402ResourceServer, engine: PolicyEngin
         amountAtomicUsdc: amount,
         asset: ctx.requirements.asset,
         network: ctx.requirements.network,
+        route,
         reason: ctx.error.message,
         timestampMs: Date.now(),
       });
     })
     .onAfterSettle(async (ctx: SettleResultContext) => {
-      const agent = (ctx.result.payer as Hex | undefined) ?? extractPayer(ctx);
+      const agent  = (ctx.result.payer as Hex | undefined) ?? extractPayer(ctx);
+      const route  = extractRoute(ctx);
       const amount = BigInt(ctx.result.amount ?? ctx.requirements.amount);
-      await engine.budget.commit(agent, amount);
+      await engine.budget.commit(agent, route, amount);
       await engine.auditLog.record({
         id: randomUUID(),
         type: 'payment:settled',
@@ -76,14 +95,16 @@ export function attachGovernance(server: x402ResourceServer, engine: PolicyEngin
         amountAtomicUsdc: amount,
         asset: ctx.requirements.asset,
         network: ctx.requirements.network,
+        route,
         txHash: ctx.result.transaction,
         timestampMs: Date.now(),
       });
     })
     .onSettleFailure(async (ctx: SettleFailureContext) => {
-      const agent = extractPayer(ctx);
+      const agent  = extractPayer(ctx);
+      const route  = extractRoute(ctx);
       const amount = BigInt(ctx.requirements.amount);
-      await engine.budget.release(agent, amount);
+      await engine.budget.release(agent, route, amount);
       await engine.auditLog.record({
         id: randomUUID(),
         type: 'payment:failed',
@@ -92,6 +113,7 @@ export function attachGovernance(server: x402ResourceServer, engine: PolicyEngin
         amountAtomicUsdc: amount,
         asset: ctx.requirements.asset,
         network: ctx.requirements.network,
+        route,
         reason: ctx.error.message,
         timestampMs: Date.now(),
       });
