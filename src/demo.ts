@@ -38,7 +38,7 @@ async function scene1() {
 
   const auditLog = new MemoryAuditLog();
   const engine = new PolicyEngine(
-    new MemoryBudgetStore({ limitAtomicUsdc: 0n, windowMs: 60_000 }),
+    new MemoryBudgetStore({ default: { limitAtomicUsdc: 0n, windowMs: 60_000 } }),
     new MemoryAllowlist({ mode: 'open' }),
     auditLog,
   );
@@ -58,7 +58,7 @@ async function scene1() {
   console.log(`  ${yellow('→')} ${dim('governance: onBeforeVerify fires...')}`);
   await sleep(700);
 
-  const ok = await engine.budget.tryReserve(AGENT, AMOUNT);
+  const ok = await engine.budget.tryReserve(AGENT, 'GET /paid', AMOUNT);
   if (!ok) {
     await engine.auditLog.record({ id: randomUUID(), type: 'payment:rejected', reason: 'budget_exceeded', ...base });
     console.log(`  ${bold(red('✗  HTTP 402'))}  ${red('budget_exceeded')}`);

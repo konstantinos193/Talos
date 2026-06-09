@@ -73,7 +73,7 @@ export class MemoryBudgetStore implements BudgetStore {
     const key = this.key(agent, route);
     const { entries } = this.live(key, windowMs);
     for (let i = entries.length - 1; i >= 0; i--) {
-      if (entries[i].amount === amount) {
+      if (entries[i]?.amount === amount) {
         entries.splice(i, 1);
         break;
       }
