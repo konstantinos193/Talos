@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { MYCELIUM_NETWORKS, type MyceliumNetwork } from "../lib/mycelium.js";
 
 function required(name: string): string {
   const v = process.env[name];
@@ -26,5 +27,18 @@ export function loadAgentEnv() {
     privateKey: required("AGENT_PRIVATE_KEY") as `0x${string}`,
     targetUrl: optional("AGENT_TARGET_URL", "http://localhost:4021/paid"),
     rpcUrl: optional("BASE_SEPOLIA_RPC_URL", "https://sepolia.base.org"),
+  } as const;
+}
+
+// Env for the Mycelium action_ref anchor (markUsed on Arbitrum). The signer reuses
+// AGENT_PRIVATE_KEY — testnet throwaway, funded on the SELECTED chain (not Base). RPC is
+// per-network so the same key can anchor on testnet then mainnet without env churn.
+export function loadMyceliumAnchorEnv(network: MyceliumNetwork) {
+  const net = MYCELIUM_NETWORKS[network];
+  return {
+    rpcUrl: optional(net.rpcEnv, net.rpcDefault),
+    auditUrl: optional("TALOS_AUDIT_URL", "http://localhost:4021/audit"),
+    // Lazy: only resolve (and require) the signing key at send time, so --dry-run needs no key.
+    privateKey: () => required("AGENT_PRIVATE_KEY") as `0x${string}`,
   } as const;
 }
