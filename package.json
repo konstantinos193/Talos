@@ -11,7 +11,8 @@
     "server": "tsx src/server.ts",
     "agent": "tsx src/agent.ts",
     "gen-wallet": "tsx src/scripts/new-wallet.ts",
-    "test": "node --import tsx/esm --test test/governance.test.ts",
+    "action-ref": "tsx src/scripts/action-ref-probe.ts",
+    "test": "node --import tsx/esm --test test/*.test.ts",
     "demo": "node --import tsx/esm src/demo.ts",
     "typecheck": "tsc --noEmit && npm -w packages/core run typecheck && npm -w packages/x402-express run typecheck"
   },
@@ -22,11 +23,11 @@
     "@x402/fetch": "^2.14.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "viem": "^2.52.0"
+    "viem": "^2.52.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "@types/node": "^25.9.1",
+    "@types/node": "^25.9.2",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }

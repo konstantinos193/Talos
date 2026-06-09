@@ -1,4 +1,6 @@
 export type { Hex, PaymentEventType, PaymentEvent } from './types.js';
+export { computeActionRef, describeActionRef } from './action-ref.js';
+export type { ActionRefDetail } from './action-ref.js';
 export type { BudgetConfig, BudgetStore } from './budget.js';
 export { MemoryBudgetStore } from './budget.js';
 export type { AllowlistMode, Allowlist, AllowlistInit } from './allowlist.js';

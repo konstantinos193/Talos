@@ -43,6 +43,40 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/core:
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/x402-express:
+    dependencies:
+      '@talos/core':
+        specifier: workspace:*
+        version: link:../core
+      '@x402/core':
+        specifier: '*'
+        version: 2.14.0
+      '@x402/evm':
+        specifier: '*'
+        version: 2.14.0(typescript@6.0.3)
+      '@x402/express':
+        specifier: '*'
+        version: 2.14.0(express@5.2.1)(typescript@6.0.3)
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.6
+        version: 5.0.6
+      '@types/node':
+        specifier: ^25.9.1
+        version: 25.9.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
 packages:
 
   '@adraffy/ens-normalize@1.11.1':

@@ -25,11 +25,16 @@ const engine = new PolicyEngine(
 const facilitator = new HTTPFacilitatorClient({ url: env.facilitatorUrl });
 const resourceServer = new x402ResourceServer(facilitator);
 registerExactEvmScheme(resourceServer); // registers eip155:* wildcard
-attachGovernance(resourceServer, engine);
+// action_ref derivation is OFF by default; flip on for the Mycelium testnet cross-verify
+// run (TALOS_DERIVE_ACTION_REF=1) once the preimage is confirmed byte-identical.
+const deriveActionRef = process.env.TALOS_DERIVE_ACTION_REF === "1";
+const { server, budgetReconciler } = attachGovernance(resourceServer, engine, { deriveActionRef });
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, payTo: env.payTo });
 });
+
+app.use(budgetReconciler);
 
 app.use(
   paymentMiddleware(
@@ -50,7 +55,7 @@ app.use(
         mimeType: "application/json",
       },
     },
-    resourceServer,
+    server,
   ),
 );
 
@@ -103,4 +108,5 @@ app.listen(env.port, () => {
   console.log(`  payTo:       ${env.payTo}`);
   console.log(`  network:     eip155:84532`);
   console.log(`  facilitator: ${env.facilitatorUrl}`);
+  console.log(`  action_ref:  ${deriveActionRef ? "ON (derived on every event)" : "off"}`);
 });

@@ -14,28 +14,48 @@ This guide is for operators who **already have a working x402 v2 resource server
 
 ## 1. Install
 
-Talos is not on npm yet. Clone the repo and install the packages locally via file: references. This is the only setup step that will feel manual; npm publish is roadmapped.
+Talos is not on npm yet. The two packages (`@talos/core` and `@talos/x402`) are an internal pnpm workspace — `@talos/x402` depends on `@talos/core` via `workspace:*`, so you **cannot** `pnpm add` the source folders directly (the `workspace:*` link won't resolve outside the workspace). The reliable way to consume them is to **pack each into a tarball** — packing rewrites the `workspace:*` link to a real version (`0.1.0`) — and install those. npm publish is roadmapped.
+
+### a. Build the tarballs (in the Talos repo)
 
 ```bash
-# 1. Clone Talos alongside your project
 git clone https://github.com/konstantinos193/Talos.git
+cd Talos
+pnpm install
+pnpm --filter @talos/core pack    # → packages/core/talos-core-0.1.0.tgz
+pnpm --filter @talos/x402 pack    # → packages/x402-express/talos-x402-0.1.0.tgz
+```
 
-# 2. From your project root, add the two packages
+Re-run the two `pack` commands whenever you pull Talos updates.
+
+### b. Install into your service
+
+Install **both tarballs in one step** — `@talos/x402` requires `@talos/core@0.1.0`, and only the local core tarball provides it (it isn't on npm).
+
+**npm / yarn** — works directly:
+```bash
 cd your-project
-pnpm add file:../Talos/packages/core file:../Talos/packages/x402
+npm install ../Talos/packages/core/talos-core-0.1.0.tgz \
+            ../Talos/packages/x402-express/talos-x402-0.1.0.tgz
 ```
 
-Your `package.json` will gain:
-```json
-{
-  "dependencies": {
-    "@talos/core": "file:../Talos/packages/core",
-    "@talos/x402": "file:../Talos/packages/x402"
-  }
-}
+**pnpm** needs an `overrides` entry so the transitive `@talos/core@0.1.0` resolves to the local tarball instead of the registry. Add this to your `pnpm-workspace.yaml` (create the file if you don't have one):
+```yaml
+overrides:
+  "@talos/core": "file:../Talos/packages/core/talos-core-0.1.0.tgz"
+```
+then:
+```bash
+cd your-project
+pnpm add ../Talos/packages/core/talos-core-0.1.0.tgz \
+         ../Talos/packages/x402-express/talos-x402-0.1.0.tgz
 ```
 
-Talos packages export TypeScript source directly and rely on `tsx` or your existing TS pipeline — no separate build step required.
+### c. Requirement — your service must transpile TypeScript
+
+> **Talos ships raw TypeScript** (`exports: "./src/index.ts"`, with `.js`-specifier imports that resolve to `.ts` files — there is no build step). Your service must run or build through **`tsx`** (e.g. `node --import tsx/esm`) **or a bundler configured to transpile `@talos/*`**. A plain `tsc` → `node dist` build will *not* pick these packages up, because `tsc` does not emit JS for dependencies inside `node_modules`.
+
+(Shipping pre-built `dist/*.js` + `.d.ts`, so any consumer can install regardless of build setup, is roadmapped alongside npm publish.)
 
 ---
 
@@ -82,12 +102,15 @@ const engine = new PolicyEngine(
 const facilitator = new HTTPFacilitatorClient({ url: process.env.FACILITATOR_URL });
 const resourceServer = new x402ResourceServer(facilitator);
 registerExactEvmScheme(resourceServer);
-attachGovernance(resourceServer, engine);  // + add — hooks into the x402 lifecycle
+const { server, budgetReconciler } = attachGovernance(resourceServer, engine);  // + changed
 
-app.use(paymentMiddleware(routes, resourceServer));
+app.use(budgetReconciler);                       // + add — MUST come before paymentMiddleware
+app.use(paymentMiddleware(routes, server));      // + changed — pass the governed `server`
 ```
 
-`attachGovernance` mutates `resourceServer` in-place (and returns it for chaining). It registers four hooks: `onBeforeVerify` gates the payment before the facilitator is ever called; `onVerifyFailure` and `onSettleFailure` release the budget reservation; `onAfterSettle` commits it. Your route handlers are unchanged.
+`attachGovernance` returns `{ server, budgetReconciler }`. It registers four hooks on the resource server — `onBeforeVerify` gates the payment before the facilitator is ever called; `onVerifyFailure` and `onSettleFailure` release the budget reservation; `onAfterSettle` commits it — and hands you a `budgetReconciler` Express middleware. (The returned `server` is the same `resourceServer` it mutated in place, so passing either to `paymentMiddleware` works; use `server` to match this wiring.)
+
+**Mount `budgetReconciler` before `paymentMiddleware`.** It listens for response completion and, when a paid route's handler returns a status ≥ 400 — a failure x402 does *not* settle — releases the reservation and records a `payment:not_settled` event. Without it (or if mounted *after* `paymentMiddleware`), a handler that errors out after payment was approved would leave budget consumed for a request that never settled. Your route handlers are otherwise unchanged.
 
 ---
 
@@ -178,7 +201,44 @@ app.get("/audit/budget", async (req, res) => {
 
 ---
 
-## 6. Verify it works
+## 6. Cross-rail join (Mycelium) — `action_ref`
+
+If you're joining Talos audit events with another rail (e.g. Mycelium anchors) on a deterministic key, the two systems compute the same SHA-256 `action_ref` from the same payment and join on it. **Recommended path: Talos exposes the raw fields, the other rail derives the hash** — one source of truth for the hash, no risk of a byte-level mismatch.
+
+The confirmed preimage (Mycelium) is:
+
+```jsonc
+{
+  "agent_id":    "<agentAddress>",     // the paying agent's address
+  "action_type": "transfer.execute",   // FIXED literal — a permission type, not the route
+  "scope":       "talos:transfer",     // FIXED literal — a permission scope, not the amount
+  "timestamp":   "<RFC 3339>"          // e.g. "2023-11-14T22:13:20.000Z" — from timestampMs
+}
+// action_ref = SHA-256(JCS(preimage))  — lowercase hex, NO 0x prefix
+```
+
+Only `agent_id` and `timestamp` vary per event; `action_type` and `scope` are constants. **`route` and `amountAtomicUsdc` are NOT hashed** — they stay in the audit record as metadata. Read the two fields that feed the preimage straight off `GET /audit`:
+
+| Audit field | Feeds | Form on the wire | Byte-identity note |
+|-------------|-------|------------------|--------------------|
+| `agentAddress` | `agent_id` | `0x`-prefixed EVM address | **⚠️ casing:** taken from the payment payload, may be EIP-55 checksummed (mixed-case). Talos passes it through **unchanged**; the two rails must agree (checksummed vs lowercase) or the hashes won't match. |
+| `timestampMs` | `timestamp` | integer **milliseconds** epoch | Convert to RFC 3339 via `new Date(timestampMs).toISOString()` → millisecond precision (`...:20.000Z`). **⚠️ precision:** seconds-only (`...:20Z`) would change the hash. |
+
+**Byte-identity is everything.** If the two preimages differ by a single byte the hashes never match and the join fails *silently* — the demo looks like it works but no rows join. Before relying on it, run the flow once on **testnet** (Arbitrum Sepolia) and confirm `Talos action_ref === Mycelium action_ref` for the same payment. Never debut this on mainnet.
+
+### Optional: let Talos derive `action_ref` too
+
+Talos can attach `action_ref` to every event itself, behind an opt-in flag that is **OFF by default**:
+
+```ts
+const { server, budgetReconciler } = attachGovernance(resourceServer, engine, { deriveActionRef: true });
+```
+
+It hashes the preimage above with the same `JCS → SHA-256 → hex` recipe. Keep it **off until a testnet cross-verify proves the hashes match** — the two open items are the timestamp precision (we emit milliseconds) and the address casing (we pass it through unchanged). The flag exists precisely so you can enable it for the testnet run, cross-verify, and only then consider it for mainnet.
+
+---
+
+## 7. Verify it works
 
 Start your server, then run through these checks. Replace `0xYOUR_AGENT` with the wallet address your agent is actually paying from.
 
@@ -242,9 +302,39 @@ Expected response:
 
 Values are atomic USDC as strings (divide by `1_000_000` for dollar amount).
 
+**Check 4 — handler failure releases the reservation (the reconciler path):**
+
+This is the check that proves `budgetReconciler` is wired in. Make a paid route fail *after* the payment is approved — temporarily have its handler return a status ≥ 400:
+
+```ts
+app.get("/scrape", (_req, res) => {
+  res.status(502).json({ error: "upstream failed" });   // TEMPORARY — for this check only
+});
+```
+
+Send a valid payment to `/scrape`, then read the audit log:
+
+```bash
+curl "http://localhost:YOUR_PORT/audit?agent=0xYOUR_AGENT&limit=10"
+```
+
+The handler returned ≥ 400, so x402 skips settlement and `budgetReconciler` releases the hold. You should see a `payment:not_settled` event — and **no** `payment:settled` for that call:
+
+```json
+{ "type": "payment:not_settled", "route": "GET /scrape", "reason": "service_failed", "amountAtomicUsdc": "10000" }
+```
+
+Confirm the reservation was actually returned — per-route spend drops back to where it was before this call:
+
+```bash
+curl "http://localhost:YOUR_PORT/audit/budget?agent=0xYOUR_AGENT"
+```
+
+Without `budgetReconciler` mounted (or mounted *after* `paymentMiddleware`), this hold would never be released and the agent would be charged budget for a request that never settled. Revert the temporary `502` when you're done.
+
 ---
 
-## 7. Production notes
+## 8. Production notes
 
 Read this before you deploy to mainnet.
 
@@ -262,7 +352,7 @@ The in-memory store's `tryReserve`/`release` cycle is safe on a single Node.js e
 
 ### Orphaned-process gotcha
 
-If you restart your server in the background (`node server.js &`) and the new process fails to bind the port silently (because the old one is still holding it), traffic continues hitting the old process on the old config. This can cause confusing behaviour where governance config changes don't appear to take effect.
+If you restart your server in the background (`pnpm run server &`, `node server.js &`) and the new process fails to bind the port silently — because a stale process is still holding it — traffic keeps hitting the old process on the old config. Redirecting stdout (`pnpm run server > out.log &`) can swallow the bind error entirely, so the failure is invisible. This causes confusing behaviour where governance config changes don't appear to take effect.
 
 Mitigate with a liveness check or a restart-on-failure policy (`pm2`, `systemd` with `Restart=always`, or a container restart policy). Before any deploy, verify the new process is actually the one handling requests.
 
