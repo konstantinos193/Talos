@@ -2,13 +2,16 @@ import { parseAbi } from "viem";
 import { arbitrum, arbitrumSepolia } from "viem/chains";
 import type { Hex } from "@talos/core";
 
-// Mycelium ActionRef registry — the cross-rail anchor for a Talos-derived action_ref.
+// Mycelium ActionRef registry (v2) — the cross-rail anchor for a Talos-derived action_ref.
 //
-// giskard09 deployed it deterministically, so the SAME address holds on testnet and mainnet;
-// only the chain (and the funded signer) changes. `markUsed` is the only call we make;
-// `ActionRefUsed` is the event giskard09 verifies on-chain against the action_ref we send.
+// v2 `markUsed` is `onlyAuthorized` (owner OR whitelisted facilitator). giskard09 whitelisted
+// our signer 0x0682…E624 via setFacilitator, so we self-anchor directly — no owner intermediary.
+// (v1 0xD467CD1e34515d58F98f8Eb66C0892643ec86AD3 is DEPRECATED + onlyOwner — do not use; it's
+// why testnet needed giskard to anchor.) Address below is Arbitrum One (42161); revisit if the
+// Arb-Sepolia v2 deploy differs. `markUsed` is the only write; `ActionRefUsed` is the event
+// verified on-chain against the action_ref we send.
 export const MYCELIUM_ACTIONREF_CONTRACT =
-  "0xD467CD1e34515d58F98f8Eb66C0892643ec86AD3" as const;
+  "0xe40E376cD32b03E3084F9E0d646155D0Ba0A63ae" as const;
 
 export const MYCELIUM_ABI = parseAbi([
   "function markUsed(bytes32 actionRef)",
