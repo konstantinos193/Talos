@@ -15,7 +15,7 @@ import type { PaymentEvent } from './types.js';
  *   - action_type and scope are FIXED literals (a permission *type*, not value-specific) —
  *     the route and amount stay in the Talos audit record as metadata but are NOT hashed.
  *   - timestamp is RFC 3339 (Date.toISOString(), millisecond precision: "...:00.000Z").
- *   - agent_id is the address AS-IS (no casing normalization in the reference impl).
+ *   - agent_id is lowercase (Mycelium algorithm requirement).
  *
  * Two items to cross-verify byte-identical on testnet before enabling on mainnet:
  *   (1) timestamp precision — milliseconds (".000Z") vs seconds (":00Z"); we use ms.
@@ -43,7 +43,7 @@ export function describeActionRef(
   e: Pick<PaymentEvent, 'agentAddress' | 'timestampMs'>,
 ): ActionRefDetail {
   const preimage = {
-    agent_id: e.agentAddress,
+    agent_id: e.agentAddress.toLowerCase(),
     action_type: ACTION_TYPE,
     scope: SCOPE,
     timestamp: new Date(e.timestampMs).toISOString(), // RFC 3339, ms precision
