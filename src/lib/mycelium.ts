@@ -12,6 +12,7 @@ export const MYCELIUM_ACTIONREF_CONTRACT =
 
 export const MYCELIUM_ABI = parseAbi([
   "function markUsed(bytes32 actionRef)",
+  "function used(bytes32 actionRef) view returns (bool)",
   "event ActionRefUsed(bytes32 indexed actionRef, address indexed caller)",
 ]);
 

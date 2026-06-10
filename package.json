@@ -13,6 +13,7 @@
     "gen-wallet": "tsx src/scripts/new-wallet.ts",
     "action-ref": "tsx src/scripts/action-ref-probe.ts",
     "mycelium-anchor": "tsx src/scripts/mycelium-anchor.ts",
+    "verify-mycelium-anchor": "tsx src/scripts/verify-mycelium-anchor.ts",
     "test": "node --import tsx/esm --test test/*.test.ts",
     "demo": "node --import tsx/esm src/demo.ts",
     "typecheck": "tsc --noEmit && npm -w packages/core run typecheck && npm -w packages/x402-express run typecheck"
